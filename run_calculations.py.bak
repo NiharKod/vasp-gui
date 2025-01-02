@@ -1,0 +1,48 @@
+import os
+import resource
+import subprocess
+
+class Calculations:
+    def __init__(self, incar, potcar, poscar):
+        self.incar = incar
+        self.potcar = potcar
+        self.poscar = poscar
+        self.output_directory = os.path.expanduser("~/Desktop/vasp_output/")
+
+    def call_calculations(self):
+        """Run the VASP calculations."""
+        try:
+            # Set unlimited memory
+            set_unlimited_memory()
+
+            # Ensure the output directory exists
+            os.makedirs(self.output_directory, exist_ok=True)
+
+            # Copy input files to the output directory
+            subprocess.run(
+                f"cp {self.incar} {self.potcar} {self.poscar} {self.output_directory}",
+                shell=True,
+                check=True
+            )
+
+            # Define the shell command to execute everything in a single session
+            command = f"""
+            module load gcc/11.2.0 openmpi/4.1.6 && \
+            module load vasp/6.3.0 && \
+            cd {self.output_directory} && \
+            mpirun -np 2 vasp_std
+            """
+
+            # Run the command in a bash shell
+            subprocess.run(command, shell=True, executable='/bin/bash', check=True)
+            print("VASP calculations completed successfully!")
+
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred: {e}")
+            print("Ensure the modules are correctly loaded, and paths are valid.")
+
+def set_unlimited_memory():
+    """Set the locked memory limit to unlimited."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)
+    resource.setrlimit(resource.RLIMIT_MEMLOCK, (hard, hard))
+    print(f"Updated RLIMIT_MEMLOCK: Soft = {hard}, Hard = {hard}")

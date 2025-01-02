@@ -1,0 +1,138 @@
+import sys
+import os
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QListWidget, QLabel, QCheckBox, QFileDialog, QMessageBox, QLineEdit
+from PyQt5 import uic
+from run_calculations import Calculations
+from create_potcar import build_potcar  # Assuming you have a build_potcar function
+
+class SimpleApp(QWidget):
+    def __init__(self):
+
+       # os.environ["QT_PLUGIN_PATH"] = "/apps/spack/anvil/apps/qt/5.15.2-gcc-11.2.0-fogyugo/plugins/"
+        
+        super().__init__()
+        uic.loadUi('gui.ui', self)
+
+        # Define toggle mode checkbox
+        self.toggleModeCheckbox = self.findChild(QCheckBox, 'toggleModeCheckbox')
+        self.toggleModeCheckbox.stateChanged.connect(self.toggle_mode)
+
+        # Define pseudopotential selection widgets
+        self.potentialList = self.findChild(QListWidget, 'potentialList')
+        self.finalizeSelectionButton = self.findChild(QPushButton, 'finalizeSelectionButton')
+        self.potcarLabel = self.findChild(QLabel, 'potcarLabel')
+
+        # Define file picker and run buttons
+        self.incarPicker = self.findChild(QPushButton, 'incarPicker')
+        self.potcarPicker = self.findChild(QPushButton, 'potcarPicker')
+        self.poscarPicker = self.findChild(QPushButton, 'poscarPicker')
+        self.runCalcs = self.findChild(QPushButton, 'runCalculations')
+        
+        # Define input fields for POSCAR parameters
+        self.latticeParameterInput = self.findChild(QLineEdit, 'latticeParameterInput')
+        self.atomCountInput = self.findChild(QLineEdit, 'atomCountInput')
+        self.atomTypeInput = self.findChild(QLineEdit, 'atomTypeInput')
+
+        # Populate pseudopotential options
+        self.potentials = ["PBE_H", "PBE_C", "PBE_O", "LDA_H", "LDA_C", "LDA_O"]  # Replace with actual potentials
+        self.potentialList.addItems(self.potentials)
+
+        # Connect buttons to functions
+        self.incarPicker.clicked.connect(self.on_clickIncar)
+        self.potcarPicker.clicked.connect(self.on_clickPotcar)
+        self.poscarPicker.clicked.connect(self.on_clickPoscar)
+        self.runCalcs.clicked.connect(self.run_calculations)
+        self.finalizeSelectionButton.clicked.connect(self.finalize_selection)
+
+        # Initialize paths and pseudopotentials
+        self.incar = ""
+        self.poscar = ""
+        self.potcar = ""
+        self.selected_potentials = []
+
+    def toggle_mode(self):
+        """Toggle between file selection and manual build mode."""
+        manual_mode = self.toggleModeCheckbox.isChecked()
+        
+        # Show or hide the pseudopotential selection elements
+        self.potentialList.setVisible(manual_mode)
+        self.finalizeSelectionButton.setVisible(manual_mode)
+        self.potcarLabel.setVisible(manual_mode)
+        
+        # Hide or show the file picker buttons
+        self.incarPicker.setVisible(not manual_mode)
+        self.potcarPicker.setVisible(not manual_mode)
+        self.poscarPicker.setVisible(not manual_mode)
+
+        # Show or hide POSCAR input fields
+        self.latticeParameterInput.setVisible(manual_mode)
+        self.atomCountInput.setVisible(manual_mode)
+        self.atomTypeInput.setVisible(manual_mode)
+
+    def check_all_files_selected(self):
+        """Check if all required files have been selected and show success message if true."""
+        
+        if self.incar and self.poscar and self.potcar:
+            QMessageBox.information(self, "Success", "All required files have been selected!")
+        elif self.incar or self.poscar or self.potcar:
+            QMessageBox.information(self, "Success", "Input file added!")
+            
+
+    def on_clickIncar(self):
+        incar, _ = QFileDialog.getOpenFileName(self, "Select an INCAR File", "", "All Files (*);;Text Files (*.txt)")
+        if incar:
+            self.incar = incar
+            print(f"Selected INCAR file: {self.incar}")
+            self.check_all_files_selected()
+
+    def on_clickPoscar(self):
+        poscar, _ = QFileDialog.getOpenFileName(self, "Select a POSCAR File", "", "All Files (*);;Text Files (*.txt)")
+        if poscar:
+            self.poscar = poscar
+            print(f"Selected POSCAR file: {self.poscar}")
+            self.check_all_files_selected()
+
+    def on_clickPotcar(self):
+        potcar, _ = QFileDialog.getOpenFileName(self, "Select a POTCAR File", "", "All Files (*);;Text Files (*.txt)")
+        if potcar:
+            self.potcar = potcar
+            print(f"Selected POTCAR file: {self.potcar}")
+            self.check_all_files_selected()
+
+    def finalize_selection(self):
+        """Finalize the pseudopotential selection."""
+        selected_items = self.potentialList.selectedItems()
+        self.selected_potentials = [item.text() for item in selected_items]
+        
+        if not self.selected_potentials:
+            QMessageBox.warning(self, "No Selection", "Please select at least one pseudopotential.")
+            return
+        
+        print("Selected pseudopotentials:", self.selected_potentials)
+        self.build_potcar(self.selected_potentials)
+
+    def build_potcar(self, potential_list):
+        """Concatenate selected pseudopotentials into a POTCAR file."""
+        build_potcar(potential_list)
+        print("POTCAR file created successfully.")
+
+    def run_calculations(self):
+        QMessageBox.information(self, "Running Calculations", "Running. Running... Please wait.")
+        if self.incar and self.poscar and self.potcar:
+            # Collect POSCAR parameters
+            lattice_param = self.latticeParameterInput.text()
+            atom_count = self.atomCountInput.text()
+            atom_type = self.atomTypeInput.text()
+            
+            # Example of how you might pass this info to the calculations class
+            calc = Calculations(self.incar, self.potcar, self.poscar)
+            calc.call_calculations()
+            QMessageBox.information(self, "Running Calculations", "Complete. Please check output directory")
+        else:
+            print("Please select all necessary files before running calculations.")
+
+print("Current working directory:", os.getcwd())
+app = QApplication([])
+window = SimpleApp()
+window.show()
+app.exec_()
