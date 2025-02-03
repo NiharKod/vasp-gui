@@ -26,7 +26,7 @@ This project provides a Graphical User Interface (GUI) for running VASP (Vienna 
 ## Prerequisites
 
 - Python (version 3.8 or higher)
-- Required Python libraries (install via pip)
+- Required Python libraries (install via pip) - PyQT5
 - Access to the Anvil Supercomputer with SSH credentials
 
 
